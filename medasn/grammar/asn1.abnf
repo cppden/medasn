@@ -1,0 +1,820 @@
+; X.680-201508
+
+; 11 The ASN.1 character set
+uppercase = %x41-5A   ;A to Z (LATIN CAPITAL LETTER A to LATIN CAPITAL LETTER Z)
+lowercase = %x61-7A   ;a to z (LATIN SMALL LETTER A to LATIN SMALL LETTER Z)
+letter    = uppercase / lowercase
+;digit = 0 to 9 (DIGIT ZERO to DIGIT 9)
+dquote  = %x22  ; " (double quote, QUOTATION MARK)
+squote  = "'"   ; ' (single quote, APOSTROPHE)
+; 11.8 The NON-BREAKING HYPHEN and the HYPHEN-MINUS should be treated as identical in all names.
+minus   = sp "-" sp
+plus    = sp "+" sp
+
+; 12.1.6 white-space
+ws      = %x09 /;HORIZONTAL TABULATION (9)
+          %x0A /;LINE FEED (10)
+          %x0B /;VERTICAL TABULATION (11)
+          %x0C /;FORM FEED (12)
+          %x0D /;CARRIAGE RETURN (13)
+          %x20 ;SPACE (32)
+          ;NO-BREAK SPACE ({0,0,0,160})
+;newline:
+newline = %x0A /; LINE FEED (10)
+          %x0B /; VERTICAL TABULATION (11)
+          %x0C /; FORM FEED (12)
+          %x0D ; CARRIAGE RETURN (13)
+
+sp = *ws  ; zero, one or more space characters
+msp = 1*ws  ; one or more space characters
+comma =  sp "," sp
+dot =  sp "." sp
+lparen = sp "(" sp
+rparen = sp ")" sp
+lbrace = sp "{" sp
+rbrace = sp "}" sp
+lbracket = sp "[" sp
+rbracket = sp "]" sp
+semicolon = sp ";" sp
+colon = sp ":" sp
+asn1ment = sp "::=" sp
+
+
+;12.2 Type references (typereference)
+; 12.2.1 A "typereference" shall consist of 1+ of letters, digits, and hyphens. The initial
+; character shall be an upper-case letter. A hyphen shall not be the last character. A hyphen shall not be immediately
+; followed by another hyphen.
+typereference = uppercase  *( alnum / minus)
+
+;12.3 Identifiers [identifier]
+; An "identifier" shall consist of 1+ of letters, digits, and hyphens. The initial character
+; shall be a lower-case letter. A hyphen shall not be the last character. A hyphen shall not be immediately followed by
+; another hyphen.
+identifier = lowercase *alnum *(minus 1*alnum)
+
+;12.4 Value references [valuereference]
+; A "valuereference" shall consist of the sequence of characters specified for an "identifier" in 12.3. In analyzing an
+; instance of use of this notation, a "valuereference" is distinguished from an "identifier" by the context in which it
+; appears.
+valuereference = identifier
+
+;12.5 Module references [modulereference]
+; A "modulereference" shall consist of the sequence of characters specified for a "typereference" in 12.2. In analyzing an
+; instance of use of this notation, a "modulereference" is distinguished from a "typereference" by the context in which it
+; appears.
+modulereference = typereference
+
+;12.6 Comments [comment]
+; 12.6.2 The lexical item "comment" can have two forms:
+; a) One-line comments which begin with " -- " as defined in 12.6.3;
+; b) Multiple-line comments which begin with " /* " as defined in 12.6.4.
+; 12.6.3 Whenever a "comment" begins with a pair of adjacent hyphens, it shall end with the next pair of adjacent
+; hyphens or at the end of the line, whichever occurs first. A comment shall not contain a pair of adjacent hyphens other
+; than the pair which starts it and the pair, if any, which ends it. If a comment beginning with " -- " includes the adjacent
+; characters " /* " or " */ ", these have no special meaning and are considered part of the comment. The comment may
+; include graphic symbols which are not in the character set specified in 11.1 (see 11.3).
+; 12.6.4 Whenever a "comment" begins with " /* ", it shall end with a corresponding " */ ", whether this " */ " is on the
+; same line or not. If another " /* " is found before a " */ ", then the comment terminates when a matching " */ " has been
+; found for each " /* ". If a comment beginning with " /* " includes two adjacent hyphens " -- ", these hyphens have no
+; special meaning and are considered part of the comment. The comment may include graphic symbols which are not in
+; the character set specified in 11.1 (see 11.3).
+; --([^\n\r-]|-[^\n\r-])*(--|-?[\n\r])
+
+;12.8 Numbers [number]
+; A "number" shall consist of one or more digits. The first digit shall not be zero unless the "number" is a single digit.
+; NOTE: The "number" lexical item is always mapped to an integer value by interpreting it as decimal notation.
+non-zero-digit  = %x31-39   ; "1" to "9"
+positive-number = non-zero-digit *DIGIT
+number = "0" / positive-number
+
+;12.9 Real numbers [realnumber]
+; A "realnumber" shall consist of an integer part that is a series of one or more digits, and optionally a decimal point (.).
+; The decimal point can optionally be followed by a fractional part which is one or more digits. The integer part, decimal
+; point or fractional part (whichever is last present) can optionally be followed by an e or E and an optionally-signed
+; exponent which is one or more digits. The leading digit of the exponent shall not be zero unless the exponent is a single
+; digit.
+realnumber = mantissa exponent
+mantissa   = (positive-number ["." *DIGIT]) / ( "0." *("0") positive-number )
+exponent   = "E" ( "0" / (["-"] positive-number))
+
+;12.10 Binary strings [bstring]
+; A "bstring" shall consist of an arbitrary number (possibly zero) of the characters: 0 1
+; possibly intermixed with white-space, preceded by an APOSTROPHE (39) character ( ' ) and followed by the pair of
+; characters: 'B
+; EXAMPLE: '01101100'B
+; Occurrences of white-space within a binary string lexical item have no significance.
+bstring = squote *(%s"BIT" / ws) squote %x42  ; '...'B
+
+;12.12 Hexadecimal strings [hstring]
+; 12.12.1 An "hstring" shall consist of an arbitrary number (possibly zero) of the characters: A B C D E F 0 1 2 3 4 5 6 7 8 9
+; possibly intermixed with white-space, preceded by an APOSTROPHE (39) character ( ' ) and followed by the pair of
+; characters: 'H
+; EXAMPLE: 'AB0196'H
+; Occurrences of white-space within a hexadecimal string lexical item have no significance.
+hstring = squote *(HEXDIG / ws) squote %x48 ; '...'H
+
+;12.16 The simple character string lexical item [simplestring]
+; A "simplestring" shall consist of one or more ISO/IEC 10646 characters whose character code is in the range 32 to 126,
+; preceded and followed by a QUOTATION MARK (34) character ("). It shall not contain a QUOTATION MARK (34)
+; character ("). The "simplestring" may span more than one line of text, in which case any characters representing end-of-
+; line shall be treated as spacing characters. In analyzing an instance of use of this notation, a "simplestring" is
+; distinguished from a "cstring" by the context in which it appears.
+; NOTE: The "simplestring" lexical item is only used in the subtype notation of the time type.
+simplestring = dquote 1*(%x20-21 / %x23-7E) dquote
+
+;12.17 Time value character strings [tstring]
+; A "tstring" shall consist of one or more of the characters: 0 1 2 3 4 5 6 7 8 9 + - : . , / C D H M R P S T W Y Z
+; preceded and followed by a QUOTATION MARK (34) character (").
+tstring = dquote 1*(DIGIT / "+" / "-" / ":" / "," / "/" / "C" / "D" / "H" / "M" / "R" / "P" / "S" / "T" / "W" / "Y" / "Z") dquote
+
+
+;12.25 Encoding references [encodingreference]
+; An "encodingreference" shall consist of a sequence of characters as specified for a "typereference" in 12.2, except that
+; no lower-case letters shall be included.
+encodingreference = uppercase  *( uppercase / DIGIT / minus)
+
+;X.681 7.1 Information object class references [objectclassreference]
+; An "objectclassreference" shall consist of a sequence of characters as specified for a "typereference" in 12.2, except that
+; no lower-case letters shall be included.
+objectclassreference = encodingreference
+
+;X.681 7.2 Information object references [objectreference]
+; An "objectreference" shall consist of a sequence of characters as specified for a "valuereference" in 12.4.
+;X.681 7.3 Information object set references [objectsetreference]
+; An "objectsetreference" shall consist of a sequence of characters as specified for a "typereference" in 12.2.
+
+; 12.38 Reserved words
+;CHARACTER = %s"CHARACTER"
+DEFAULT = %s"DEFAULT"
+;ENCODED = %s"ENCODED" 
+OF = msp %s"OF" msp
+OPTIONAL = msp %s"OPTIONAL" msp
+;ObjectDescriptor = %s"ObjectDescriptor" 
+SEQUENCE = %s"SEQUENCE"
+SET = %s"SET"
+;UTCTime = %s"UTCTime"
+;GeneralizedTime = %s"GeneralizedTime"
+
+;13 Module definition
+; 13.1 A "ModuleDefinition" is specified by the following productions:
+ModuleDefinition = ModuleIdentifier 
+    %s"DEFINITIONS" 
+        [EncodingReferenceDefault] [TagDefault] [%s"EXTENSIBILITY" msp %s"IMPLIED"]
+    asn1ment %s"BEGIN"
+        [ModuleBody] EncodingControlSections 
+    %s"END"
+
+ModuleIdentifier = modulereference [DefinitiveIdentification]
+DefinitiveIdentification = DefinitiveOID / DefinitiveOIDandIRI
+DefinitiveOID = lbrace DefinitiveObjIdComponentList rbrace
+DefinitiveOIDandIRI = DefinitiveOID msp IRIValue
+DefinitiveObjIdComponentList = DefinitiveObjIdComponent / DefinitiveObjIdComponent msp DefinitiveObjIdComponentList
+DefinitiveObjIdComponent = NameForm / DefinitiveNumberForm / DefinitiveNameAndNumberForm
+DefinitiveNumberForm = number
+DefinitiveNameAndNumberForm = identifier lparen DefinitiveNumberForm rparen
+;13.5 The "EncodingReferenceDefault" specifies that the "encodingreference" is the default encoding reference for
+; the module. If the "EncodingReferenceDefault" is "empty", then the default encoding reference for the module is TAG.
+EncodingReferenceDefault = encodingreference %s"INSTRUCTIONS"
+;13.2 The "TagDefault" is taken as EXPLICIT TAGS if it is "empty".
+TagDefault = (%s"EXPLICIT" / %s"IMPLICIT" / %s"AUTOMATIC") msp %s"TAGS"
+;13.4 The EXTENSIBILITY IMPLIED option is equivalent to the textual insertion of an extension marker (" ... ") in
+; the definition of each type in the module for which it is permitted. The location of the implied extension marker is the
+; last position in the type where an explicitly specified extension marker is allowed.
+; NOTE: EXTENSIBILITY IMPLIED affects only types. It has no effect on object sets and subtype constraints.
+
+ModuleBody = [Exports] msp [Imports] msp AssignmentList
+
+Exports = %s"EXPORTS" ( %s"ALL" / [SymbolsExported] ) semicolon
+SymbolsExported = SymbolList
+Imports = %s"IMPORTS" [SymbolsImported] semicolon
+SymbolsImported = SymbolsFromModuleList
+SymbolsFromModuleList = SymbolsFromModule / SymbolsFromModuleList SymbolsFromModule
+SymbolsFromModule = SymbolList %s"FROM" msp GlobalModuleReference
+GlobalModuleReference = modulereference [AssignedIdentifier]
+AssignedIdentifier = ObjectIdentifierValue / DefinedValue
+SymbolList = Symbol / SymbolList comma Symbol
+Symbol = Reference / ParameterizedReference
+Reference = typereference / 
+            valuereference / 
+            objectclassreference
+AssignmentList = 1*(sp Assignment)
+Assignment =  TypeAssignment            ;16.1
+            / ValueAssignment           ;16.2
+            / ValueSetTypeAssignment    ;16.6
+            / ObjectClassAssignment     ;X.681 9.1
+            / ObjectAssignment          ;X.681 11.1
+            / ObjectSetAssignment       ;X.681 12.1
+            / ParameterizedAssignment   ;X.683 8.1
+
+;14 Referencing type and value definitions
+DefinedType = ExternalTypeReference 
+            / typereference 
+            / ParameterizedType         ;X.683
+            / ParameterizedValueSetType ;X.683
+
+DefinedValue = ExternalValueReference
+            / valuereference
+;            / ParameterizedValue    ;X.683
+
+;14.6 An external reference shall be used in a module only to refer to a reference name which is defined in a
+; different module, and is specified by the following productions:
+ExternalTypeReference = modulereference dot typereference
+ExternalValueReference = modulereference dot valuereference
+
+;15.3 Any part of any ASN.1 type definition can be referenced by use of the "AbsoluteReference" syntactic construct:
+AbsoluteReference = "@" ModuleIdentifier dot ItemSpec
+ItemSpec = typereference / ItemId dot ComponentId
+ItemId = ItemSpec
+ComponentId = identifier / number / "*"
+
+;16 Assigning types and values
+;16.1 A "typereference" shall be assigned a type by the notation specified by the "TypeAssignment" production:
+TypeAssignment = typereference asn1ment Type
+; The "typereference" shall not be an ASN.1 reserved word (see 12.38).
+;16.2 A "valuereference" shall be assigned a value by the notation specified by either the "ValueAssignment" or
+; "XMLValueAssignment" productions:
+ValueAssignment = valuereference msp Type asn1ment Value
+
+;16.6 A "typereference" can be assigned a value set by the notation specified by the "ValueSetTypeAssignment" production:
+ValueSetTypeAssignment = typereference msp Type asn1ment ValueSet
+ValueSet = lbrace ElementSetSpecs rbrace
+
+;17 Definition of types and values
+;17.1 A type shall be specified by the notation "Type":
+Type = BuiltinType / ReferencedType / ConstrainedType
+
+;17.2 The built-in types of ASN.1 are specified by the notation "BuiltinType", defined as follows:
+BuiltinType = BitStringType
+            / BooleanType
+            / CharacterStringType
+            / ChoiceType
+            / DateType
+            / DateTimeType
+            / DurationType
+            / EmbeddedPDVType
+            / EnumeratedType
+            / ExternalType
+            / InstanceOfType ;X.681
+            / IntegerType
+            / IRIType
+            / NullType
+            / ObjectClassFieldType  ;X.681
+            / ObjectIdentifierType
+            / OctetStringType
+            / RealType
+            / RelativeIRIType
+            / RelativeOIDType
+            / SequenceType
+            / SequenceOfType
+            / SetType
+            / SetOfType
+            / PrefixedType
+            / TimeType
+            / TimeOfDayType
+
+ReferencedType = DefinedType
+            / UsefulType
+            / SelectionType
+            / TypeFromObject        ;X.681
+            / ValueSetFromObjects   ;X.681
+
+NamedType = identifier msp Type
+
+Value       = BuiltinValue
+            / ReferencedValue
+            / ObjectClassFieldValue
+
+BuiltinValue = BitStringValue
+            / BooleanValue
+            / CharacterStringValue
+            / ChoiceValue
+            / EmbeddedPDVValue
+            / EnumeratedValue
+            / ExternalValue
+            / InstanceOfValue
+            / IntegerValue
+            / IRIValue
+            / NullValue
+            / ObjectIdentifierValue
+            / OctetStringValue
+            / RealValue
+            / RelativeIRIValue
+            / RelativeOIDValue
+            / SequenceValue
+            / SequenceOfValue
+            / SetValue
+            / SetOfValue
+            / PrefixedValue
+            / TimeValue
+
+ReferencedValue = DefinedValue / ValueFromObject
+NamedValue = identifier msp Value
+
+;18 Notation for the boolean type
+BooleanType = %s"BOOLEAN"
+BooleanValue = %s"TRUE" / %s"FALSE"
+
+;19 Notation for the integer type
+IntegerType = %s"INTEGER" [lbrace NamedNumberList rbrace]
+NamedNumberList = NamedNumber / NamedNumberList comma NamedNumber
+NamedNumber = identifier lparen SignedNumber rparen
+            / identifier lparen DefinedValue rparen
+SignedNumber = ["-"] number
+IntegerValue = SignedNumber / identifier
+
+;20 Notation for the enumerated type
+EnumeratedType = %s"ENUMERATED" lbrace Enumerations rbrace
+Enumerations = RootEnumeration
+            / RootEnumeration comma ellipsis ExceptionSpec
+            / RootEnumeration comma ellipsis ExceptionSpec comma AdditionalEnumeration
+RootEnumeration = Enumeration
+AdditionalEnumeration = Enumeration
+Enumeration = EnumerationItem / EnumerationItem comma Enumeration
+EnumerationItem = identifier / NamedNumber
+EnumeratedValue = identifier
+
+;21 Notation for the real type
+RealType = %s"REAL"
+RealValue = NumericRealValue / SpecialRealValue
+NumericRealValue = "0" / realnumber / ("-" realnumber) / RealSequenceValue
+SpecialRealValue = %s"PLUS-INFINITY" / %s"MINUS-INFINITY" / %s"NOT-A-NUMBER"
+RealSequenceValue = lbrace
+    %s"mantissa" msp IntegerValue comma
+    %s"base" msp ("2" / "10") comma
+    %s"exponent" msp IntegerValue rbrace
+
+;22 Notation for the bitstring type
+BitStringType = %s"BIT" msp %s"STRING" [lbrace NamedBitList rbrace]
+NamedBitList = NamedBit / NamedBitList comma NamedBit
+NamedBit = identifier lparen number rparen / identifier lparen DefinedValue rparen
+BitStringValue = bstring / hstring / lbrace [IdentifierList] rbrace / %s"CONTAINING" msp Value
+IdentifierList = identifier / IdentifierList comma identifier
+
+;23 Notation for the octetstring type
+OctetStringType = %s"OCTET" msp %s"STRING"
+OctetStringValue = bstring / hstring / %s"CONTAINING" msp Value
+
+;24 Notation for the null type
+NullType = %s"NULL"
+NullValue = %s"NULL"
+
+;25 Notation for sequence types
+SequenceType = SEQUENCE lbrace [ExtensionAndException [OptionalExtensionMarker]] / [ComponentTypeLists] rbrace
+ExtensionAndException = ellipsis msp [ExceptionSpec]
+OptionalExtensionMarker = comma ellipsis
+ComponentTypeLists = RootComponentTypeList
+        / RootComponentTypeList comma ExtensionAndException [msp ExtensionAdditions] [OptionalExtensionMarker]
+        / RootComponentTypeList comma ExtensionAndException [msp ExtensionAdditions] msp ExtensionEndMarker comma RootComponentTypeList
+        / ExtensionAndException [msp ExtensionAdditions] msp ExtensionEndMarker comma RootComponentTypeList 
+        / ExtensionAndException [msp ExtensionAdditions] [OptionalExtensionMarker]
+RootComponentTypeList = ComponentTypeList
+ExtensionEndMarker = comma ellipsis
+ExtensionAdditions = comma ExtensionAdditionList
+ExtensionAdditionList = ExtensionAddition
+        / ExtensionAdditionList comma ExtensionAddition
+ExtensionAddition = ComponentType
+        / ExtensionAdditionGroup
+ExtensionAdditionGroup = "[[" sp [VersionNumber] msp ComponentTypeList sp "]]"
+VersionNumber = number colon
+ComponentTypeList = ComponentType *(comma ComponentType)
+ComponentType = NamedType
+        / NamedType msp OPTIONAL
+        / NamedType msp DEFAULT msp Value
+        / %s"COMPONENTS" msp OF msp Type
+
+SequenceValue = lbrace [ComponentValueList] rbrace
+ComponentValueList = NamedValue *(comma NamedValue)
+
+;26 Notation for sequence-of types
+SequenceOfType = SEQUENCE OF Type 
+        / SEQUENCE OF NamedType
+SequenceOfValue = lbrace [ValueList / NamedValueList] rbrace
+ValueList = Value *(comma Value)
+NamedValueList = NamedValue *(comma NamedValue)
+
+;27 Notation for set types
+SetType = SET lbrace [ExtensionAndException [OptionalExtensionMarker] / ComponentTypeLists] rbrace
+SetValue = lbrace [ComponentValueList] rbrace
+
+;28 Notation for set-of types
+SetOfType = SET msp OF msp (Type / NamedType)
+SetOfValue = lbrace [ValueList / NamedValueList] rbrace
+
+;29 Notation for choice types
+ChoiceType = %s"CHOICE" lbrace AlternativeTypeLists rbrace
+AlternativeTypeLists = AlternativeTypeList
+        / AlternativeTypeList comma ExtensionAndException 
+        [comma ExtensionAdditionAlternativesList] [OptionalExtensionMarker]
+ExtensionAdditionAlternativesList = ExtensionAdditionAlternative *(comma ExtensionAdditionAlternative)
+ExtensionAdditionAlternative = ExtensionAdditionAlternativesGroup / NamedType
+ExtensionAdditionAlternativesGroup = "[[" sp VersionNumber AlternativeTypeList sp "]]"
+AlternativeTypeList = NamedType *(comma NamedType)
+        / TaggedType *(comma TaggedType)
+;29.5 The automatic tagging transformation impacts each "NamedType" of the "AlternativeTypeLists" by replacing
+;the "Type" originally in the "NamedType" production with a replacement "TaggedType". The replacement
+;"TaggedType" is specified as follows:
+; a) the replacement "TaggedType" notation uses the "Tag Type" alternative;
+; b) the "Class" of the replacement "TaggedType" is empty (i.e., tagging is context-specific);
+; c) the "ClassNumber" in the replacement "TaggedType" is tag value zero for the first "NamedType" in the
+;    "RootAlternativeTypeList", one for the second, and so on, proceeding with increasing tag numbers;
+; d) the "ClassNumber" in the replacement "TaggedType" of the first "NamedType" in the
+;    "ExtensionAdditionAlternativesList" is one greater than the largest "ClassNumber" in the
+;    "RootAlternativeTypeList", with the next "NamedType" in the "ExtensionAdditionAlternativesList"
+;    having a "ClassNumber" one greater than the first, and so on, proceeding with increasing tag numbers;
+; e) the "Type" in the replacement "TaggedType" is the original "Type" being replaced.
+ChoiceValue = identifier colon Value
+
+;30 Notation for selection types
+SelectionType = identifier sp "<" sp Type
+
+;31 Notation for prefixed types
+PrefixedType = TaggedType / EncodingPrefixedType
+PrefixedValue = Value
+
+;31.2 The tagged type
+TaggedType = Tag [%s"IMPLICIT" / %s"EXPLICIT"] msp Type
+Tag = lbracket [encodingreference colon] [Class] ClassNumber rbracket
+ClassNumber = number / DefinedValue
+Class = sp [%s"UNIVERSAL" / %s"APPLICATION" / %s"PRIVATE"] sp ; optional -> empty
+
+;31.3 The encoding prefixed type
+EncodingPrefixedType = EncodingPrefix Type
+EncodingPrefix = lbracket [encodingreference colon] EncodingInstruction rbracket
+
+;32 Notation for the object identifier type
+ObjectIdentifierType = %s"OBJECT" msp %s"IDENTIFIER"
+ObjectIdentifierValue = lbrace [DefinedValue msp] ObjIdComponentsList rbrace
+ObjIdComponentsList = 1*(sp ObjIdComponents)
+ObjIdComponents = NameForm / NumberForm / NameAndNumberForm / DefinedValue
+NameForm = identifier
+NumberForm = number / DefinedValue
+NameAndNumberForm = identifier lparen NumberForm rparen
+
+;33 Notation for the relative object identifier type
+RelativeOIDType = %s"RELATIVE-OID"
+RelativeOIDValue = lbrace RelativeOIDComponentsList rbrace
+RelativeOIDComponentsList = 1*(sp RelativeOIDComponents)
+RelativeOIDComponents = NumberForm / NameAndNumberForm / DefinedValue
+
+;34 Notation for the OID internationalized resource identifier type
+IRIType = %s"OID-IRI"
+IRIValue = dquote 1*("/" ArcIdentifier) dquote
+ArcIdentifier = integerUnicodeLabel / non-integerUnicodeLabel
+
+;35 Notation for the relative OID internationalized resource identifier type
+RelativeIRIType = %s"RELATIVE-OID-IRI"
+RelativeIRIValue = dquote ArcIdentifier *("/" ArcIdentifier) dquote
+
+;36 Notation for the embedded-pdv type
+EmbeddedPDVType = %s"EMBEDDED" msp %s"PDV"
+EmbeddedPDVValue = SequenceValue
+
+;37 Notation for the external type
+ExternalType = %s"EXTERNAL"
+ExternalValue = SequenceValue
+
+;38 The time type
+TimeType = %s"TIME"
+TimeValue = tstring
+;38.4 Useful time types
+DateType = %s"DATE" ;[UNIVERSAL 31] IMPLICIT TIME (SETTINGS "Basic=Date Date=YMD Year=Basic")
+TimeOfDayType = %s"TIME-OF-DAY" ;[UNIVERSAL 32] IMPLICIT TIME (SETTINGS "Basic=Time Time=HMS Local-or-UTC=L")
+DateTimeType = %s"DATE-TIME" ;[UNIVERSAL 33] IMPLICIT TIME (SETTINGS "Basic=Date-Time Date=YMD Year=Basic Time=HMS Local-or-UTC=L")
+DurationType = %s"DURATION" ;[UNIVERSAL 34] IMPLICIT TIME (SETTINGS "Basic=Interval Interval-type=D")
+;DURATION-EQUIVALENT ::= SEQUENCE {
+;        years INTEGER (0..MAX) OPTIONAL,
+;        months INTEGER (0..MAX) OPTIONAL,
+;        weeks INTEGER (0..MAX) OPTIONAL,
+;        days INTEGER (0..MAX) OPTIONAL,
+;        hours INTEGER (0..MAX) OPTIONAL,
+;        minutes INTEGER (0..MAX) OPTIONAL,
+;        seconds INTEGER (0..MAX) OPTIONAL,
+;        fractional-part SEQUENCE {
+;                number-of-digits INTEGER(1..MAX),
+;                fractional-value INTEGER(0..MAX) 
+;        } OPTIONAL 
+;}
+
+;40 Notation for character string types
+CharacterStringType = RestrictedCharacterStringType / UnrestrictedCharacterStringType
+CharacterStringValue = RestrictedCharacterStringValue / UnrestrictedCharacterStringValue
+
+;41 Definition of restricted character string types
+RestrictedCharacterStringType = %s"BMPString"
+        / %s"GeneralString"
+        / %s"GraphicString"
+        / %s"IA5String"
+        / %s"ISO646String"
+        / %s"NumericString"
+        / %s"PrintableString"
+        / %s"TeletexString"
+        / %s"T61String"
+        / %s"UniversalString"
+        / %s"UTF8String"
+        / %s"VideotexString"
+        / %s"VisibleString"
+
+NumericString = dquote *(DIGIT / space) dquote
+PrintableString  = dquote *PrintableCharacter dquote
+PrintableCharacter = DIGIT / space
+        / %x41-5A ; A to Z
+        / %x61-7A ; a to z
+        / %x27-29 ; ' ( )
+        / %x2B-2F ; + , - . /
+        / %x3A    ; :
+        / %x3D    ; =
+        / %x3F    ; ?
+
+ISO646String = VisibleString
+VisibleString = dquote *SafeVisibleCharacter dquote
+SafeVisibleCharacter = %x20-21
+        / %x23-7E ; printable ASCII minus dquote
+        / dquote dquote   ; escaped double quote
+
+IA5String = dquote *SafeIA5Character dquote
+SafeIA5Character = %x00-21 / %x23-7F ; ASCII minus dquote
+        / dquote dquote   ; escaped double quote
+
+RestrictedCharacterStringValue = cstring
+        / CharacterStringList
+        / Quadruple
+        / Tuple
+CharacterStringList = lbrace CharSyms rbrace
+CharSyms = CharsDefn *(comma CharsDefn)
+CharsDefn = cstring
+        / Quadruple
+        / Tuple
+        / DefinedValue
+Quadruple = lbrace Group comma Plane comma Row comma Cell rbrace
+Group = number
+Plane = number
+Row = number
+Cell = number
+Tuple = lbrace TableColumn comma TableRow rbrace
+TableColumn = number
+TableRow = number
+
+UTF8String = StringValue
+StringValue = dquote *SafeUTF8Character dquote
+SafeUTF8Character = %x00-21 / %x23-7F   ; ASCII minus dquote
+        / dquote dquote       ; escaped double quote
+        / %xC0-DF %x80-BF     ; 2 byte UTF-8 character
+        / %xE0-EF 2(%x80-BF)  ; 3 byte UTF-8 character
+        / %xF0-F7 3(%x80-BF)  ; 4 byte UTF-8 character
+
+BMPString        = StringValue
+UniversalString  = StringValue
+TeletexString    = StringValue
+T61String        = StringValue
+VideotexString   = StringValue
+GraphicString    = StringValue
+GeneralString    = StringValue
+
+;49 Constrained types
+ConstrainedType = Type Constraint / TypeWithConstraint
+TypeWithConstraint = SET Constraint OF Type
+        / SET msp SizeConstraint OF Type
+        / SEQUENCE msp Constraint OF Type
+        / SEQUENCE msp SizeConstraint OF Type
+        / SET Constraint OF NamedType
+        / SET SizeConstraint OF NamedType
+        / SEQUENCE Constraint OF NamedType
+        / SEQUENCE SizeConstraint OF NamedType
+
+Constraint = lparen ConstraintSpec ExceptionSpec rparen
+ConstraintSpec = SubtypeConstraint / GeneralConstraint
+SubtypeConstraint = ElementSetSpecs
+
+; 50 Element set specification
+ElementSetSpecs = RootElementSetSpec
+        / RootElementSetSpec "," " ... "
+        / RootElementSetSpec "," " ... " "," AdditionalElementSetSpec
+RootElementSetSpec = ElementSetSpec
+AdditionalElementSetSpec = ElementSetSpec
+ElementSetSpec = Unions / %s"ALL" Exclusions
+Unions = Intersections / Unions UnionMark Intersections
+Intersections = IntersectionElements
+        / Intersections IntersectionMark IntersectionElements
+IntersectionElements = Elements [Exclusions]
+Exclusions = %s"EXCEPT" Elements
+UnionMark = "|" / %s"UNION"
+IntersectionMark = "^" / %s"INTERSECTION"
+Elements = SubtypeElements 
+        / ObjectSetElements 
+        / lparen ElementSetSpec rparen
+
+; 51 Subtype elements
+SubtypeElements = SingleValue
+        / ContainedSubtype
+        / ValueRange
+        / PermittedAlphabet
+        / SizeConstraint
+        / TypeConstraint
+        / InnerTypeConstraints
+        / PatternConstraint
+        / PropertySettings
+        / DurationRange
+        / TimePointRange
+        / RecurrenceRange
+
+SingleValue = Value
+ContainedSubtype = [%s"INCLUDES" msp] Type
+ValueRange = LowerEndpoint ".." UpperEndpoint
+LowerEndpoint = LowerEndValue / LowerEndValue "<"
+UpperEndpoint = UpperEndValue / "<" UpperEndValue
+LowerEndValue = Value / %s"MIN"
+UpperEndValue = Value / %s"MAX"
+SizeConstraint = %s"SIZE" msp Constraint
+TypeConstraint = Type
+PermittedAlphabet = %s"FROM" msp Constraint
+InnerTypeConstraints = %s"WITH" msp %s"COMPONENT" msp SingleTypeConstraint
+        / %s"WITH" msp %s"COMPONENTS" MultipleTypeConstraints
+SingleTypeConstraint = Constraint
+MultipleTypeConstraints = FullSpecification
+        / PartialSpecification
+FullSpecification = lbrace TypeConstraints rbrace
+PartialSpecification = lbrace "..." comma TypeConstraints rbrace
+TypeConstraints = NamedConstraint / NamedConstraint comma TypeConstraints
+NamedConstraint = identifier ComponentConstraint
+ComponentConstraint = ValueConstraint PresenceConstraint
+ValueConstraint = [Constraint]
+PresenceConstraint = [%s"PRESENT" / %s"ABSENT" / OPTIONAL]
+PatternConstraint = %s"PATTERN" Value
+PropertySettings = %s"SETTINGS" simplestring
+PropertySettingsList = PropertyAndSettingPair
+        / PropertySettingsList PropertyAndSettingPair
+PropertyAndSettingPair = PropertyName "=" SettingName
+PropertyName = psname
+SettingName = psname
+DurationRange = ValueRange
+TimePointRange = ValueRange
+RecurrenceRange = ValueRange
+
+; 52 The extension marker
+; 53 The exception identifier
+ExceptionSpec = [ "!" ExceptionIdentification ]
+ExceptionIdentification = SignedNumber
+        / DefinedValue
+        / Type colon Value
+
+; 54 Encoding control sections
+EncodingControlSections = *EncodingControlSection
+EncodingControlSection = %s"ENCODING-CONTROL" encodingreference EncodingInstructionAssignmentList
+
+; Rec. ITU-T X.681 (08/2015)
+; 8 Referencing definitions
+DefinedObjectClass = ExternalObjectClassReference
+        / objectclassreference
+        / UsefulObjectClassReference
+DefinedObject = ExternalObjectReference
+        / objectreference
+DefinedObjectSet = ExternalObjectSetReference
+        / objectsetreference
+ExternalObjectClassReference = modulereference dot objectclassreference
+ExternalObjectReference = modulereference dot objectreference
+ExternalObjectSetReference = modulereference dot objectsetreference
+
+UsefulObjectClassReference = %s"TYPE-IDENTIFIER" / %s"ABSTRACT-SYNTAX"
+
+; 9 Information object class definition and assignment
+ObjectClassAssignment = objectclassreference asn1ment ObjectClass
+ObjectClass = DefinedObjectClass
+        / ObjectClassDefn
+        / ParameterizedObjectClass
+
+ObjectClassDefn = %s"CLASS" lbrace FieldSpec *(comma FieldSpec) rbrace [WithSyntaxSpec]
+WithSyntaxSpec = %s"WITH" msp %s"SYNTAX" msp SyntaxList
+FieldSpec = TypeFieldSpec
+        / FixedTypeValueFieldSpec
+        / VariableTypeValueFieldSpec
+        / FixedTypeValueSetFieldSpec
+        / VariableTypeValueSetFieldSpec
+        / ObjectFieldSpec
+        / ObjectSetFieldSpec
+
+TypeFieldSpec = typefieldreference [TypeOptionalitySpec]
+TypeOptionalitySpec = OPTIONAL / DEFAULT Type
+FixedTypeValueFieldSpec = valuefieldreference Type [%s"UNIQUE"] sp [ValueOptionalitySpec]
+ValueOptionalitySpec = OPTIONAL / DEFAULT Value
+VariableTypeValueFieldSpec = valuefieldreference FieldName [ValueOptionalitySpec]
+FixedTypeValueSetFieldSpec = valuesetfieldreference Type [ValueSetOptionalitySpec]
+ValueSetOptionalitySpec = OPTIONAL / DEFAULT ValueSet
+VariableTypeValueSetFieldSpec = valuesetfieldreference FieldName [ValueSetOptionalitySpec]
+ObjectFieldSpec = objectfieldreference DefinedObjectClass [ObjectOptionalitySpec]
+ObjectOptionalitySpec = OPTIONAL / DEFAULT Object
+ObjectSetFieldSpec = objectsetfieldreference DefinedObjectClass [ObjectSetOptionalitySpec]
+ObjectSetOptionalitySpec = OPTIONAL / DEFAULT ObjectSet
+
+PrimitiveFieldName = typefieldreference
+        / valuefieldreference
+        / valuesetfieldreference
+        / objectfieldreference
+        / objectsetfieldreference
+
+FieldName = PrimitiveFieldName *(dot PrimitiveFieldName)
+
+; 10 Syntax List
+SyntaxList = lbrace *(TokenOrGroupSpec) rbrace
+TokenOrGroupSpec = RequiredToken / OptionalGroup
+OptionalGroup = lbracket *(TokenOrGroupSpec) rbracket
+RequiredToken = Literal / PrimitiveFieldName
+Literal = word / ","
+
+; 11 Information object definition and assignment
+ObjectAssignment = objectreference DefinedObjectClass asn1ment Object
+Object = DefinedObject
+        / ObjectDefn
+        / ObjectFromObject
+        / ParameterizedObject
+
+ObjectDefn = DefaultSyntax / DefinedSyntax
+DefaultSyntax = lbrace FieldSetting *(comma FieldSetting) rbrace
+FieldSetting = PrimitiveFieldName Setting
+DefinedSyntax = lbrace *DefinedSyntaxToken rbrace
+DefinedSyntaxToken = Literal / Setting
+Setting = Type
+        / Value
+        / ValueSet
+        / Object
+        / ObjectSet
+
+; 12 Information object set definition and assignment
+ObjectSetAssignment = objectsetreference DefinedObjectClass asn1ment ObjectSet
+ObjectSet = lbrace ObjectSetSpec rbrace
+ObjectSetSpec = RootElementSetSpec
+        / [RootElementSetSpec comma] "..." [comma AdditionalElementSetSpec]
+ObjectSetElements = Object
+        / DefinedObjectSet
+        / ObjectSetFromObjects
+        / ParameterizedObjectSet
+
+; 14 Notation for the object class field type
+ObjectClassFieldType = DefinedObjectClass dot FieldName
+ObjectClassFieldValue = OpenTypeFieldVal / FixedTypeFieldVal
+OpenTypeFieldVal = Type colon Value
+FixedTypeFieldVal = BuiltinValue / ReferencedValue
+
+; 15 Information from objects
+InformationFromObjects = ValueFromObject
+        / ValueSetFromObjects
+        / TypeFromObject
+        / ObjectFromObject
+        / ObjectSetFromObjects
+ValueFromObject = ReferencedObjects dot FieldName
+ValueSetFromObjects = ReferencedObjects dot FieldName
+TypeFromObject = ReferencedObjects dot FieldName
+ObjectFromObject = ReferencedObjects dot FieldName
+ObjectSetFromObjects = ReferencedObjects dot FieldName
+ReferencedObjects = DefinedObject
+        / ParameterizedObject
+        / DefinedObjectSet
+        / ParameterizedObjectSet
+
+InstanceOfType = %s"INSTANCE" OF DefinedObjectClass
+InstanceOfValue = Value
+
+; Rec. ITU-T X.682 (08/2015)
+GeneralConstraint = UserDefinedConstraint / TableConstraint / ContentsConstraint
+UserDefinedConstraint = %s"CONSTRAINED" msp %s"BY" lbrace [UserDefinedConstraintParameter] *(comma UserDefinedConstraintParameter) rbrace
+UserDefinedConstraintParameter = Governor colon Value
+        / Governor colon Object
+        / DefinedObjectSet
+        / Type
+        / DefinedObjectClass
+TableConstraint = SimpleTableConstraint / ComponentRelationConstraint
+SimpleTableConstraint = ObjectSet       
+ComponentRelationConstraint = lbrace DefinedObjectSet rbrace lbrace AtNotation *(comma AtNotation) rbrace
+AtNotation = "@" sp ComponentIdList / "@." *(".") sp ComponentIdList
+ComponentIdList = identifier *(dot identifier)
+
+; Rec. ITU-T X.683 (08/2015)
+ParameterizedAssignment = ParameterizedTypeAssignment
+        / ParameterizedValueAssignment
+        / ParameterizedValueSetTypeAssignment
+        / ParameterizedObjectClassAssignment
+        / ParameterizedObjectAssignment
+        / ParameterizedObjectSetAssignment
+
+ParameterizedTypeAssignment = typereference ParameterList asn1ment Type
+ParameterizedValueAssignment = valuereference ParameterList Type asn1ment Value
+ParameterizedValueSetTypeAssignment = typereference ParameterList Type asn1ment ValueSet
+ParameterizedObjectClassAssignment = objectclassreference ParameterList asn1ment ObjectClass
+ParameterizedObjectAssignment = objectreference ParameterList DefinedObjectClass asn1ment Object
+ParameterizedObjectSetAssignment = objectsetreference ParameterList DefinedObjectClass asn1ment ObjectSet
+ParameterList = lbrace Parameter *(comma Parameter) rbrace
+Parameter = ParamGovernor colon DummyReference / DummyReference
+ParamGovernor = Governor / DummyGovernor
+Governor = Type / DefinedObjectClass
+DummyGovernor = DummyReference
+DummyReference = Reference
+ParameterizedReference = Reference [lbrace rbrace]
+SimpleDefinedType = ExternalTypeReference / typereference
+SimpleDefinedValue = ExternalValueReference / valuereference
+ParameterizedType = SimpleDefinedType ActualParameterList
+ParameterizedValue = SimpleDefinedValue ActualParameterList
+ParameterizedValueSetType = SimpleDefinedType ActualParameterList
+ParameterizedObjectClass = DefinedObjectClass ActualParameterList
+ParameterizedObjectSet = DefinedObjectSet ActualParameterList
+ParameterizedObject = DefinedObject ActualParameterList
+ActualParameterList = lbrace ActualParameter *(comma ActualParameter) rbrace
+ActualParameter = Type / Value / ValueSet / DefinedObjectClass / Object / ObjectSet

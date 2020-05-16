@@ -1,0 +1,6 @@
+[submodule "PEGTL"]
+	path = PEGTL
+	url = https://github.com/taocpp/PEGTL.git
+[submodule "med"]
+	path = med
+	url = https://github.com/cppden/med.git
