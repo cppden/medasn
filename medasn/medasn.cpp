@@ -4,7 +4,7 @@
 #include <tao/pegtl.hpp>
 #include <tao/pegtl/analyze.hpp>
 #include <tao/pegtl/contrib/abnf.hpp>
-#include <tao/pegtl/contrib/parse_tree.hpp>
+//#include <tao/pegtl/contrib/parse_tree.hpp>
 
 //#include "grammar/asn1.hpp"
 
@@ -135,7 +135,7 @@ struct semicolon : peg::seq< sp, peg::one<';'>, sp > {};
 struct colon : peg::seq< sp, peg::one<':'>, sp > {};
 struct ellipsis : peg::three<'.'> {};
 struct asn1ment : peg::seq< sp, peg::string<':',':','='>, sp > {};
-struct OptionalExtensionMarker : peg::seq< comma, ellipsis > {};
+struct OptionalExtensionMarker : peg::opt< peg::seq< comma, ellipsis > > {};
 
 using identifier_other = peg::internal::ranges<peg::internal::peek_char,'a','z','A','Z','0','9','-'>;
 
@@ -274,9 +274,13 @@ struct Class : peg::seq<sp, peg::opt< peg::sor<
 		peg::string<'P','R','I','V','A','T','E'> > >, sp > {};
 struct ClassNumber : peg::sor< number, DefinedValue > {};
 struct Tag : peg::seq< lbracket, peg::opt< peg::seq< encodingreference, colon > >, peg::opt< Class >, ClassNumber, rbracket > {};
-struct TaggedType : peg::seq< Tag, peg::opt< peg::sor<
-		peg::string<'I','M','P','L','I','C','I','T'>,
-		peg::string<'E','X','P','L','I','C','I','T'> > >, msp, Type > {};
+struct TaggedType : peg::seq<
+		Tag,
+		peg::opt< peg::sor<
+			peg::string<'I','M','P','L','I','C','I','T'>,
+			peg::string<'E','X','P','L','I','C','I','T'> > >,
+		msp,
+		Type > {};
 struct AlternativeTypeList : peg::sor< peg::list_must<NamedType, comma>, peg::list_must<TaggedType, comma> > {};
 struct SignedNumber : peg::seq< peg::opt< peg::one<'-'> >, number > {};
 
@@ -426,7 +430,7 @@ struct ExtensionAdditionAlternative : peg::sor< ExtensionAdditionAlternativesGro
 struct ExtensionAdditionAlternativesList : peg::list_must<ExtensionAdditionAlternative, comma> {};
 struct AlternativeTypeLists : peg::sor< AlternativeTypeList,
 		peg::seq< AlternativeTypeList, comma, ExtensionAndException,
-			peg::opt< peg::seq< comma, ExtensionAdditionAlternativesList > >, peg::opt< OptionalExtensionMarker > > > {};
+			peg::opt< peg::seq< comma, ExtensionAdditionAlternativesList > >, OptionalExtensionMarker > > {};
 struct ChoiceType : peg::seq< peg::string<'C','H','O','I','C','E'>, lbrace, AlternativeTypeLists, rbrace > {};
 struct DateType : peg::string<'D','A','T','E'> {};
 struct DateTimeType : peg::string<'D','A','T','E','-','T','I','M','E'> {};
@@ -469,17 +473,31 @@ struct ComponentTypeList : peg::list_must<ComponentType, comma> {};
 struct RootComponentTypeList : ComponentTypeList {};
 struct ExtensionAdditionGroup : peg::seq< peg::two<'['>, sp, peg::opt<VersionNumber>, sp, ComponentTypeList, sp, peg::two<']'> > {};
 struct ExtensionAddition : peg::sor< ComponentType, ExtensionAdditionGroup > {};
-struct ExtensionAdditionList : peg::seq< peg::opt_must<ExtensionAdditionList, comma>, ExtensionAddition> {};
-struct ExtensionAdditions : peg::seq< comma, ExtensionAdditionList > {};
+struct ExtensionAdditions : peg::opt< peg::seq< comma, peg::list_must<ExtensionAddition, comma> > > {};
 struct ExtensionEndMarker : peg::seq< comma, ellipsis > {};
+/*
+ComponentTypeLists ::=
+  RootComponentTypeList
+| RootComponentTypeList "," ExtensionAndException ExtensionAdditions ExtensionEndMarker "," RootComponentTypeList
+| RootComponentTypeList "," ExtensionAndException ExtensionAdditions OptionalExtensionMarker
+| ExtensionAndException ExtensionAdditions ExtensionEndMarker "," RootComponentTypeList
+| ExtensionAndException ExtensionAdditions OptionalExtensionMarker
+*/
 struct ComponentTypeLists : peg::sor<
-		RootComponentTypeList,
-		peg::seq< RootComponentTypeList, comma, ExtensionAndException, sp,
-			peg::opt<ExtensionAdditions, sp, OptionalExtensionMarker> >,
-		peg::seq< RootComponentTypeList, comma, ExtensionAndException, sp,
-			peg::opt<ExtensionAdditions>, sp, ExtensionEndMarker, comma, RootComponentTypeList >,
-		peg::seq< ExtensionAndException, sp, peg::opt<ExtensionAdditions>, sp, ExtensionEndMarker, comma, RootComponentTypeList >,
-		peg::seq< ExtensionAndException, sp, peg::opt<ExtensionAdditions, sp, OptionalExtensionMarker> >
+		peg::seq< RootComponentTypeList,
+			peg::opt_must<comma, ExtensionAndException, sp, ExtensionAdditions, sp,
+				peg::sor<
+					peg::seq<ExtensionEndMarker, comma, RootComponentTypeList>,
+					OptionalExtensionMarker
+				>
+			>
+		>,
+		peg::seq< ExtensionAndException, sp, ExtensionAdditions, sp,
+			peg::sor<
+				peg::seq<ExtensionEndMarker, comma, RootComponentTypeList>,
+				OptionalExtensionMarker
+			>
+		>
 > {};
 struct SequenceType : peg::seq< SEQUENCE, lbrace,
 		peg::opt< peg::sor<
@@ -551,16 +569,16 @@ struct ConstrainedType;
 struct Type : peg::sor< BuiltinType, ReferencedType, ConstrainedType > {};
 struct TypeConstraint : Type {};
 struct TypeWithConstraint : peg::sor<
-		peg::seq< SET, Constraint, OF, Type >,
-		peg::seq< SET, msp, SizeConstraint, OF, Type >,
-		peg::seq< SEQUENCE, msp, Constraint, OF, Type >,
-		peg::seq< SEQUENCE, msp, SizeConstraint, OF, Type >,
-		peg::seq< SET, Constraint, OF, NamedType >,
-		peg::seq< SET, SizeConstraint, OF, NamedType >,
-		peg::seq< SEQUENCE, Constraint, OF, NamedType >,
-		peg::seq< SEQUENCE, SizeConstraint, OF, NamedType >
+		peg::seq< SET, sp, Constraint, sp, OF, sp, Type >,
+		peg::seq< SET, sp, SizeConstraint, sp, OF, sp, Type >,
+		peg::seq< SEQUENCE, sp, Constraint, sp, OF, sp, Type >,
+		peg::seq< SEQUENCE, sp, SizeConstraint, sp, OF, sp, Type >,
+		peg::seq< SET, sp, Constraint, sp, OF, sp, NamedType >,
+		peg::seq< SET, sp, SizeConstraint, sp, OF, sp, NamedType >,
+		peg::seq< SEQUENCE, sp, Constraint, sp, OF, sp, NamedType >,
+		peg::seq< SEQUENCE, sp, SizeConstraint, sp, OF, sp, NamedType >
 > {};
-struct ConstrainedType : peg::sor< peg::seq< Type, Constraint >, TypeWithConstraint > {};
+struct ConstrainedType : peg::sor< peg::seq< Type, sp, Constraint >, TypeWithConstraint > {};
 
 struct TypeAssignment : peg::seq< typereference, asn1ment, Type > {};
 struct ValueAssignment : peg::seq< valuereference, msp, Type, asn1ment, Value > {};
@@ -640,7 +658,7 @@ struct Assignment : peg::sor<
 > {};
 struct AssignmentList : peg::plus< sp, Assignment > {};
 
-struct ModuleBody : peg::seq< peg::opt< Exports >, msp, peg::opt< Imports >, msp, AssignmentList > {};
+struct ModuleBody : peg::seq< peg::opt< Exports >, sp, peg::opt< Imports >, AssignmentList > {};
 struct ModuleIdentifier : peg::seq< modulereference, peg::opt< DefinitiveIdentification > > {};
 //X.680 (08/2015) 54.4
 struct ENCODING_CONTROL : peg::string<'E','N','C','O','D','I','N','G','-','C','O','N','T','R','O','L'> {};
@@ -649,14 +667,14 @@ struct EncodingInstructionAssignmentList : peg::disable< peg::any, peg::until<pe
 struct EncodingControlSection : peg::seq< ENCODING_CONTROL, encodingreference, EncodingInstructionAssignmentList > {};
 struct EncodingControlSections : peg::star< EncodingControlSection > {};
 struct ModuleDefinition : peg::seq<
-	ModuleIdentifier,
-	peg::string<'D','E','F','I','N','I','T','I','O','N','S'>,
-	peg::opt< EncodingReferenceDefault >,
-	peg::opt< TagDefault >,
+	ModuleIdentifier, sp,
+	peg::string<'D','E','F','I','N','I','T','I','O','N','S'>, sp,
+	peg::opt< EncodingReferenceDefault >, sp,
+	peg::opt< TagDefault >, sp,
 	peg::opt< peg::seq< peg::string<'E','X','T','E','N','S','I','B','I','L','I','T','Y'>, msp, peg::string<'I','M','P','L','I','E','D'> > >,
-	asn1ment, peg::string<'B','E','G','I','N'>,
-	peg::opt< ModuleBody >,
-	EncodingControlSections,
+	asn1ment, peg::string<'B','E','G','I','N'>, sp,
+	peg::opt< ModuleBody >, sp,
+	EncodingControlSections, sp,
 	peg::string<'E','N','D'>
 > {};
 
@@ -746,6 +764,31 @@ struct BuiltinValue : peg::sor<
 
 struct grammar : peg::must< sp, ModuleDefinition, sp, peg::eof > {};
 
+
+// ACTIONS
+// Primary action class template.
+template <class R> struct action : peg::nothing< R > {};
+
+template <> struct action<ModuleIdentifier>
+{
+	template <class IN>
+	static void apply(IN const& in)
+	{
+		std::cout << "MODULE: " << in.string() << "\n";
+	}
+};
+
+template <> struct action<comment>
+{
+	template <class IN>
+	static void apply(IN const& in)
+	{
+		std::cout << "REM@" << in.position() << ": " << in.string() << "\n";
+	}
+};
+
+//modulereference comment
+
 } //end: namespace asn1
 
 int main(int argc, char** argv)
@@ -753,35 +796,75 @@ int main(int argc, char** argv)
 
 	if (argc != 2)
 	{
-		peg::analyze< asn1::grammar >();
+		//int const issues = peg::analyze< asn1::grammar >();
+/*
+BitStringValue,
+CharacterStringValue,
+ChoiceValue,
+ExternalValue,
+InstanceOfValue,
+OctetStringValue,
+SequenceValue,
+SequenceOfValue,
+SetValue,
+SetOfValue,
+PrefixedValue,
+*/
+//DefinedSyntaxToken ComponentTypeLists Type, Constraint BuiltinValue ActualParameterList
+
+		int const issues = 0;
+//		peg::analyze< asn1::AlternativeTypeList >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::NamedType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::TaggedType >();
+//		std::cout << __LINE__ << "\n";
+//		struct Type : peg::sor< BuiltinType, ,  > {};
+//		peg::analyze< asn1::ReferencedType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::ConstrainedType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::ParameterizedType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::ParameterizedValueSetType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::ActualParameterList >();
+//		std::cout << __LINE__ << "\n";
+
+		peg::analyze< asn1::ChoiceType >();
+		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::EnumeratedType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::SequenceType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::SequenceOfType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::SetType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::SetOfType >();
+//		std::cout << __LINE__ << "\n";
+//		peg::analyze< asn1::PrefixedType >();
+//		std::cout << __LINE__ << "\n";
+
 		std::cerr << "Usage: " << argv[0] << " SOURCE" << std::endl;
-		return EXIT_FAILURE;
+		return issues ? issues : EXIT_FAILURE;
 	}
-
-	peg::file_input<> in{argv[1]};
-
 #if 0
-	try
+	for (int i = 1; i < argc; ++i)
 	{
-		const auto root =
-		peg::parse_tree::parse<asn1::grammar, asn1::selector, nothing, asn1::error_control >( in );
-		for (auto const& rule : root->children)
+		peg::file_input<> in( argv[i] );
+		try
 		{
-			abnf::rules_defined.push_back( asn1::get_rulename( rule->children.front() ) );
+			peg::parse< asn1::grammar, asn1::action >( in );
 		}
-
-		for (auto const& rule : root->children)
+		catch (peg::parse_error const& ex)
 		{
-			std::cout << asn1::to_string( rule ) << std::endl;
+			peg::position p = ex.positions.front();
+			std::cerr << ex.what() << "\n"
+				<< in.line_at(p) << "\n"
+				<< std::string(p.byte_in_line, ' ') << '^' << std::endl;
+			return EXIT_FAILURE;
 		}
-	}
-	catch (peg::parse_error const& ex)
-	{
-		const auto p = ex.positions.front();
-		std::cerr << ex.what() << std::endl
-				<< in.line_at(p) << std::endl
-				<< std::string(p.byte_in_line,'') <<'^' << std::endl;
-		return EXIT_FAILURE;
 	}
 #endif
 	return EXIT_SUCCESS;
